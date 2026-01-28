@@ -41,6 +41,10 @@ python build.py
 
 The executable runs with a system tray icon - right-click to open browser or stop the server.
 
+### Option 3: Use the Prebuilt Executable in Releases
+
+I've also included a prebuilt executable for users to access that can be found in releases.
+
 ## Usage
 
 1. **Start the application** - A browser window will open automatically
