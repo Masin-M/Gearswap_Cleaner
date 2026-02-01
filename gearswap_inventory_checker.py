@@ -248,10 +248,14 @@ class LuaItemExtractor:
             return False
         
         # Skip if it's a known slot name being used as a value
+        # Includes all common GearSwap slot aliases
         slot_names = {
-            'main', 'sub', 'range', 'ammo', 'head', 'neck',
-            'ear1', 'ear2', 'left_ear', 'right_ear',
-            'body', 'hands', 'ring1', 'ring2', 'left_ring', 'right_ring',
+            'main', 'sub', 'range', 'ranged', 'ammo', 'head', 'neck',
+            'lear', 'ear1', 'learring', 'left_ear',
+            'rear', 'ear2', 'rearring', 'right_ear',
+            'body', 'hands',
+            'lring', 'ring1', 'left_ring',
+            'rring', 'ring2', 'right_ring',
             'back', 'waist', 'legs', 'feet'
         }
         if name.lower() in slot_names:
