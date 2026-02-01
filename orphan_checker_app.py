@@ -297,11 +297,23 @@ async def analyze_files(
         # Extract items from lua files
         extractor = LuaItemExtractor()
         for lua_path in lua_paths:
-            extractor.extract_from_file(lua_path)
+            try:
+                extractor.extract_from_file(lua_path)
+            except Exception as e:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Error parsing Lua file '{Path(lua_path).name}': {str(e)}"
+                )
         
         # Load inventory
         loader = InventoryLoader()
-        loader.load_from_csv(str(inv_path), equip_only=True)
+        try:
+            loader.load_from_csv(str(inv_path), equip_only=True)
+        except Exception as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Error parsing inventory CSV: {str(e)}"
+            )
         
         # Compare
         orphaned = compare_inventory_to_gearswap(loader.items, extractor.items)
@@ -319,6 +331,18 @@ async def analyze_files(
             "inventory_items": len(loader.items),
             "orphaned_items": len(orphaned),
         }
+    
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
+    except Exception as e:
+        # Catch any other unexpected errors
+        import traceback
+        traceback.print_exc()  # Print to server console for debugging
+        raise HTTPException(
+            status_code=500,
+            detail=f"Unexpected error during analysis: {str(e)}"
+        )
         
     finally:
         # Clean up temp files
@@ -933,15 +957,24 @@ def get_html_template() -> str:
                     body: formData,
                 });
                 
+                if (!response.ok) {
+                    // Try to get error details from response
+                    const errorText = await response.text();
+                    console.error('Server error:', response.status, errorText);
+                    showMessage(`Server error (${response.status}): ${errorText.substring(0, 100)}`, 'error');
+                    return;
+                }
+                
                 const data = await response.json();
                 
                 if (data.success) {
                     showMessage(`Found ${data.orphaned_items} orphaned items!`, 'success');
                     checkStatus();
                 } else {
-                    showMessage('Analysis failed', 'error');
+                    showMessage('Analysis failed: ' + (data.detail || 'Unknown error'), 'error');
                 }
             } catch (error) {
+                console.error('Upload error:', error);
                 showMessage('Upload failed: ' + error, 'error');
             }
         }
@@ -959,6 +992,13 @@ def get_html_template() -> str:
                     body: formData,
                 });
                 
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Server error:', response.status, errorText);
+                    showMessage(`Failed to load state (${response.status}): ${errorText.substring(0, 100)}`, 'error');
+                    return;
+                }
+                
                 const data = await response.json();
                 
                 if (data.success) {
@@ -966,6 +1006,7 @@ def get_html_template() -> str:
                     checkStatus();
                 }
             } catch (error) {
+                console.error('Load state error:', error);
                 showMessage('Failed to load state: ' + error, 'error');
             }
         }
@@ -973,6 +1014,14 @@ def get_html_template() -> str:
         async function loadChecklist() {
             try {
                 const response = await fetch('/api/checklist');
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Server error:', response.status, errorText);
+                    showMessage(`Failed to load checklist (${response.status}): ${errorText.substring(0, 100)}`, 'error');
+                    return;
+                }
+                
                 checklistData = await response.json();
                 
                 document.getElementById('checked-count').textContent = checklistData.checked_count;
@@ -980,6 +1029,7 @@ def get_html_template() -> str:
                 
                 renderChecklist();
             } catch (error) {
+                console.error('Load checklist error:', error);
                 showMessage('Failed to load checklist: ' + error, 'error');
             }
         }
@@ -1041,6 +1091,13 @@ def get_html_template() -> str:
                     body: JSON.stringify({item_key: key, checked: checked}),
                 });
                 
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Server error:', response.status, errorText);
+                    showMessage(`Failed to update item (${response.status})`, 'error');
+                    return;
+                }
+                
                 const data = await response.json();
                 
                 if (data.success) {
@@ -1060,6 +1117,7 @@ def get_html_template() -> str:
                         `${containerChecked}/${containerItems.length} done`;
                 }
             } catch (error) {
+                console.error('Toggle item error:', error);
                 showMessage('Failed to update item: ' + error, 'error');
             }
         }

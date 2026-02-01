@@ -112,6 +112,7 @@ class InventoryItem:
     container_name: str
     augments: str = ""
     count: int = 1
+    item_name_log: str = ""  # Full name from log (e.g., "Sacred Kindred's crest" vs "S. Kindred Crest")
     
     def __hash__(self):
         return hash((self.item_id, self.container_id, self.augments))
@@ -133,6 +134,10 @@ class InventoryItem:
     @property
     def name_lower(self) -> str:
         return self.item_name.lower()
+    
+    @property
+    def name_log_lower(self) -> str:
+        return self.item_name_log.lower() if self.item_name_log else ""
 
 
 class LuaItemExtractor:
@@ -286,6 +291,7 @@ class InventoryLoader:
                     container_name=row['container_name'],
                     augments=augments,
                     count=int(row.get('count', 1)),
+                    item_name_log=row.get('item_name_log', '').strip(),
                 )
                 
                 self.items.append(item)
@@ -304,15 +310,22 @@ def item_is_in_gearswap(inv_item: InventoryItem, lua_items: Set[LuaGearItem]) ->
     Check if an inventory item matches any item in the gearswap lua files.
     
     Matching rules:
+    - Name matches if lua item name matches either item_name OR item_name_log (case-insensitive)
     - If lua item has no augments: matches any inventory item with same name
     - If lua item has augments: lua augments must be subset of inventory augments
     """
     inv_name_lower = inv_item.name_lower
+    inv_name_log_lower = inv_item.name_log_lower
     inv_augments = inv_item.normalized_augments
     
     for lua_item in lua_items:
-        # Name must match (case-insensitive)
-        if lua_item.name_lower != inv_name_lower:
+        lua_name_lower = lua_item.name_lower
+        
+        # Name must match either item_name or item_name_log (case-insensitive)
+        name_matches = (lua_name_lower == inv_name_lower or 
+                       (inv_name_log_lower and lua_name_lower == inv_name_log_lower))
+        
+        if not name_matches:
             continue
         
         # If lua has no augments specified, it matches any version
